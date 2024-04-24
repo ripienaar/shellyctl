@@ -1,0 +1,36 @@
+project_name: aht20
+
+release:
+  github:
+    owner: ripienaar
+    name: shellyctl
+  name_template: "Release {{.Version}}"
+  draft: true
+
+changelog:
+  skip: true
+
+builds:
+  - id: shellyctl
+    binary: shellyctl
+    goos:
+      - linux
+    goarch:
+      - arm
+      - arm64
+      - amd64
+    goarm:
+      - "6"
+      - "7"
+
+archives:
+  - name_template: "shellyctl-{{.Version}}-{{.Os}}-{{.Arch}}{{if .Arm}}{{.Arm}}{{end}}"
+    wrap_in_directory: true
+    format: zip
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: "SHA256SUMS"
+  algorithm: sha256
