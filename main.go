@@ -62,20 +62,30 @@ func energyAction(_ *fisk.ParseContext) error {
 		return err
 	}
 
-	nfo, err := plug.Status()
+	status, err := plug.Status()
 	if err != nil {
 		return err
 	}
 
-	if len(nfo.Meters) != 1 {
+	if len(status.Meters) != 1 {
 		return fmt.Errorf("no meter information received")
 	}
+	if len(status.Relays) != len(status.Meters) {
+		return fmt.Errorf("invalid relay information received")
+	}
 
-	m := nfo.Meters[0]
+	m := status.Meters[0]
+	r := status.Relays[0]
+
+	isOn := float64(0)
+	if r.IsOn {
+		isOn = 1
+	}
 
 	reading := map[string]any{
 		"power_watt":      m.Power,
 		"power_total_kwh": float64(m.Total) * 0.000016666666666666667,
+		"is_on":           isOn,
 	}
 
 	switch {
@@ -92,6 +102,7 @@ func energyAction(_ *fisk.ParseContext) error {
 			"metrics": map[string]any{
 				"current_power_watt": reading["power_watt"],
 				"today_energy_kwh":   reading["power_total_kwh"],
+				"relay_on":           reading["is_on"],
 			}}
 		j, err := json.MarshalIndent(data, "", "  ")
 		if err != nil {
@@ -102,6 +113,7 @@ func energyAction(_ *fisk.ParseContext) error {
 	default:
 		fmt.Println("Meter Information")
 		fmt.Println()
+		fmt.Printf("          Powered On: %t\n", isOn)
 		fmt.Printf("               Power: %.2f Watt\n", m.Power)
 		fmt.Printf("   Total Consumption: %.2f kWh\n", float64(m.Total)*0.000016666666666666667)
 	}
