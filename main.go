@@ -1,15 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/url"
 	"os"
-	"time"
 
 	"github.com/choria-io/fisk"
-	"github.com/dustin/go-humanize"
 )
 
 var (
@@ -19,11 +16,12 @@ var (
 	jsonFormat   bool
 	choriaFormat bool
 	labels       map[string]string
+	v2Plus       bool
 )
 
 func main() {
 	app := fisk.New("shellyctl", "Controls Shell Plug / Plug S Smart Plugs")
-
+	app.Flag("v2", "Enable support for Shelly V2+ devices").BoolVar(&v2Plus)
 	labels = make(map[string]string)
 
 	app.Flag("address", "Device IP address").Short('A').Envar("ADDRESS").Required().IPVar(&ip)
@@ -44,6 +42,14 @@ func main() {
 	app.MustParseWithUsage(os.Args[1:])
 }
 
+func newPlug() (Plug, error) {
+	if v2Plus {
+		return nil, fmt.Errorf("shelly V2+ devices are not supported yet")
+	} else {
+		return newShellyV1Plug(deviceUrl())
+	}
+}
+
 func deviceUrl() url.URL {
 	var usr *url.Userinfo
 	if user != "" && pass != "" {
@@ -57,154 +63,25 @@ func deviceUrl() url.URL {
 }
 
 func energyAction(_ *fisk.ParseContext) error {
-	plug, err := NewShellyPlug(deviceUrl())
+	plug, err := newPlug()
 	if err != nil {
 		return err
 	}
 
-	status, err := plug.Status()
-	if err != nil {
-		return err
-	}
-
-	if len(status.Meters) != 1 {
-		return fmt.Errorf("no meter information received")
-	}
-	if len(status.Relays) != len(status.Meters) {
-		return fmt.Errorf("invalid relay information received")
-	}
-
-	m := status.Meters[0]
-	r := status.Relays[0]
-
-	isOn := float64(0)
-	if r.IsOn {
-		isOn = 1
-	}
-
-	reading := map[string]any{
-		"power_watt":      m.Power,
-		"power_total_kwh": float64(m.Total) * 0.000016666666666666667,
-		"is_on":           isOn,
-	}
-
-	switch {
-	case jsonFormat:
-		j, err := json.MarshalIndent(reading, "", "  ")
-		if err != nil {
-			return err
-		}
-		fmt.Println(string(j))
-
-	case choriaFormat:
-		data := map[string]any{
-			"labels": labels,
-			"metrics": map[string]any{
-				"current_power_watt": reading["power_watt"],
-				"today_energy_kwh":   reading["power_total_kwh"],
-				"relay_on":           reading["is_on"],
-			}}
-		j, err := json.MarshalIndent(data, "", "  ")
-		if err != nil {
-			return err
-		}
-		fmt.Println(string(j))
-
-	default:
-		fmt.Println("Meter Information")
-		fmt.Println()
-		fmt.Printf("          Powered On: %t\n", isOn)
-		fmt.Printf("               Power: %.2f Watt\n", m.Power)
-		fmt.Printf("   Total Consumption: %.2f kWh\n", float64(m.Total)*0.000016666666666666667)
-	}
-
-	return nil
+	return plug.RenderEnergy(os.Stdout)
 }
 
 func infoAction(_ *fisk.ParseContext) error {
-	plug, err := NewShellyPlug(deviceUrl())
+	plug, err := newPlug()
 	if err != nil {
 		return err
 	}
 
-	nfo, err := plug.Info()
-	if err != nil {
-		return err
-	}
-	status, err := plug.Status()
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("Shelly device information for %s\n", ip.String())
-	fmt.Println()
-	fmt.Println("Device Information")
-	fmt.Println()
-	fmt.Printf("         Device Type: %s\n", nfo.Type)
-	fmt.Printf("            Firmware: %s\n", nfo.FW)
-	fmt.Printf("         MAC Address: %s\n", status.MAC)
-	fmt.Println()
-
-	t := time.Unix(status.Unixtime, 0)
-
-	fmt.Println("Device Status")
-	fmt.Println()
-	fmt.Printf("                Time: %s\n", t)
-	fmt.Printf("              Uptime: %v\n", time.Duration(status.Uptime)*time.Second)
-	fmt.Printf("         Memory Used: %v\n", humanize.IBytes(uint64(status.RamTotal)))
-	fmt.Printf("         Memory Free: %v\n", humanize.IBytes(uint64(status.RamFree)))
-	fmt.Printf("       Storage Total: %v\n", humanize.IBytes(uint64(status.FsSize)))
-	fmt.Printf("        Storage Free: %v\n", humanize.IBytes(uint64(status.FsFree)))
-
-	fmt.Println()
-	fmt.Println("Network Information")
-	fmt.Println()
-	fmt.Printf("          IP Address: %s\n", status.WiFi.IP)
-	fmt.Printf("           WiFi SSID: %s\n", status.WiFi.SSID)
-	fmt.Printf("       WiFi Strength: %d\n", status.WiFi.RSSI)
-	fmt.Printf("       Cloud Enabled: %t\n", status.Cloud.Enabled)
-	if status.Cloud.Enabled {
-		fmt.Printf("     Cloud Connected: %t\n", status.Cloud.Connected)
-	}
-	fmt.Printf("      MQTT Connected: %t\n", status.MQTT.Connected)
-
-	fmt.Println()
-	fmt.Println("Updates Information")
-	fmt.Println()
-	fmt.Printf("          Has Update: %t\n", status.Update.HasUpdate)
-	fmt.Printf("    Latest Available: %s\n", status.Update.NewVersion)
-
-	if len(status.Relays) == 1 {
-		fmt.Println()
-		fmt.Println("Relay Information")
-		fmt.Println()
-		s := "On"
-		if !status.Relays[0].IsOn {
-			s = "Off"
-		}
-		fmt.Printf("        Power Status: %s\n", s)
-		fmt.Printf("               Timer: %t\n", status.Relays[0].HasTimer)
-		if status.Relays[0].HasTimer {
-			t := time.Unix(status.Relays[0].TimerStarted, 0)
-			fmt.Printf("             Started: %v\n", t)
-			fmt.Printf("            Duration: %v\n", time.Duration(status.Relays[0].TimerDuration)*time.Second)
-			fmt.Printf("           Remaining: %v\n", time.Duration(status.Relays[0].TimerRemaining)*time.Second)
-		}
-	}
-
-	if len(status.Meters) == 1 {
-		fmt.Println()
-		fmt.Println("Meter Information")
-		fmt.Println()
-		fmt.Printf("               Power: %.2f Watt\n", status.Meters[0].Power)
-		fmt.Printf("   Total Consumption: %.2f kWh\n", float64(status.Meters[0].Total)*0.000016666666666666667)
-	}
-
-	return nil
+	return plug.RenderInfo(os.Stdout)
 }
 
 func onAction(_ *fisk.ParseContext) error {
-	plug, err := NewShellyPlug(deviceUrl())
+	plug, err := newPlug()
 	if err != nil {
 		return err
 	}
@@ -220,7 +97,7 @@ func onAction(_ *fisk.ParseContext) error {
 }
 
 func offAction(_ *fisk.ParseContext) error {
-	plug, err := NewShellyPlug(deviceUrl())
+	plug, err := newPlug()
 	if err != nil {
 		return err
 	}
