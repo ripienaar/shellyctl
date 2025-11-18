@@ -44,7 +44,7 @@ func main() {
 
 func newPlug() (Plug, error) {
 	if v2Plus {
-		return nil, fmt.Errorf("shelly V2+ devices are not supported yet")
+		return newShellyV2Plug(deviceUrl())
 	} else {
 		return newShellyV1Plug(deviceUrl())
 	}

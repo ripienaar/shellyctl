@@ -2,7 +2,7 @@
 
 A small client utility for interacting with the Shelly Plugs.
 
-Tested on a Raspberry PI with Go 1.22
+Tested on a Raspberry PI with Go 1.24
 
 ## Usage?
 

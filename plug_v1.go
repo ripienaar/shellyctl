@@ -11,20 +11,20 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-// DeviceStatusV1 aggregates all status information for the device. Returned from the /status API
-type DeviceStatusV1 struct {
-	WiFi     WiFiStatusV1       `json:"wifi_sta" yaml:"wifi_sta"`
-	Cloud    CloudStatusV1      `json:"cloud" yaml:"cloud"`
-	MQTT     MQTTStatusV1       `json:"mqtt" yaml:"mqtt"`
+// deviceStatusV1 aggregates all status information for the device. Returned from the /status API
+type deviceStatusV1 struct {
+	WiFi     wiFiStatusV1       `json:"wifi_sta" yaml:"wifi_sta"`
+	Cloud    cloudStatusV1      `json:"cloud" yaml:"cloud"`
+	MQTT     mQTTStatusV1       `json:"mqtt" yaml:"mqtt"`
 	Time     string             `json:"time" yaml:"time"`         // Current hour and minutes, HH:MM format
 	Unixtime int64              `json:"unixtime" yaml:"unixtime"` // Unix timestamp if synced; 0 otherwise
 	Serial   int64              `json:"serial" yaml:"serial"`     // Cloud serial number
 	MAC      string             `json:"mac" yaml:"mac"`           // MAC address of the device
-	Update   UpdateStatusV1     `json:"update" yaml:"update"`
-	FS       FileSystemStatusV1 `json:"fs" yaml:"fs"`
+	Update   updateStatusV1     `json:"update" yaml:"update"`
+	FS       fileSystemStatusV1 `json:"fs" yaml:"fs"`
 	Uptime   int64              `json:"uptime" yaml:"uptime"`       // Seconds have elapsed since boot
-	Relays   []RelayV1          `json:"relays" yaml:"relays"`       // Array of relay statuses
-	Meters   []MeterV1          `json:"meters" yaml:"meters"`       // Array of meter statuses
+	Relays   []relayV1          `json:"relays" yaml:"relays"`       // Array of relay statuses
+	Meters   []meterV1          `json:"meters" yaml:"meters"`       // Array of meter statuses
 	RamTotal int64              `json:"ram_total" yaml:"ram_total"` // Total amount of system memory in bytes
 	RamFree  int64              `json:"ram_free" yaml:"ram_free"`   // Available amount of system memory in bytes
 	FsSize   int64              `json:"fs_size" yaml:"fs_size"`     // Total amount of the file system in bytes
@@ -32,8 +32,8 @@ type DeviceStatusV1 struct {
 
 }
 
-// DeviceInfoV1 is the response from the /shelly API
-type DeviceInfoV1 struct {
+// deviceInfoV1 is the response from the /shelly API
+type deviceInfoV1 struct {
 	Type   string `json:"type" yaml:"type"`     // Shelly model identifier
 	MAC    string `json:"mac" yaml:"mac"`       // MAC address of the device
 	Auth   bool   `json:"auth" yaml:"auth"`     // Whether HTTP requests require authentication
@@ -41,41 +41,41 @@ type DeviceInfoV1 struct {
 	LongID int    `json:"longid" yaml:"longid"` // 1 if the device identifies itself with its full MAC address; 0 if only the last 3 bytes are used
 }
 
-// WiFiStatusV1 represents the current status of the WiFi connection.
-type WiFiStatusV1 struct {
+// wiFiStatusV1 represents the current status of the WiFi connection.
+type wiFiStatusV1 struct {
 	Connected bool   `json:"connected" yaml:"connected"` // Status of WiFi connection
 	SSID      string `json:"ssid" yaml:"ssid"`           // WiFi SSID
 	IP        string `json:"ip" yaml:"ip"`               // IP address assigned by the WiFi router
 	RSSI      int    `json:"rssi" yaml:"rssi"`           // Signal strength indicator
 }
 
-// CloudStatusV1 represents the current cloud connection status.
-type CloudStatusV1 struct {
+// cloudStatusV1 represents the current cloud connection status.
+type cloudStatusV1 struct {
 	Enabled   bool `json:"enabled" yaml:"enabled"`     // Whether cloud functionality is enabled
 	Connected bool `json:"connected" yaml:"connected"` // Current cloud connection status
 }
 
-// MQTTStatusV1 represents the MQTT connection status when MQTT is enabled.
-type MQTTStatusV1 struct {
+// mQTTStatusV1 represents the MQTT connection status when MQTT is enabled.
+type mQTTStatusV1 struct {
 	Connected bool `json:"connected" yaml:"connected"` // MQTT connection status
 }
 
-// UpdateStatusV1 contains information about firmware updates.
-type UpdateStatusV1 struct {
+// updateStatusV1 contains information about firmware updates.
+type updateStatusV1 struct {
 	Status     string `json:"status" yaml:"status"`           // Current status of firmware update
 	HasUpdate  bool   `json:"has_update" yaml:"has_update"`   // Whether a new firmware version is available
 	NewVersion string `json:"new_version" yaml:"new_version"` // New firmware version
 	OldVersion string `json:"old_version" yaml:"old_version"` // Old firmware version
 }
 
-// FileSystemStatusV1 contains information about the file system storage.
-type FileSystemStatusV1 struct {
+// fileSystemStatusV1 contains information about the file system storage.
+type fileSystemStatusV1 struct {
 	Size int64 `json:"size" yaml:"size"` // Total amount of the file system in bytes
 	Free int64 `json:"free" yaml:"free"` // Available amount of the file system in bytes
 }
 
-// RelayV1 represents the current state of each relay output channel.
-type RelayV1 struct {
+// relayV1 represents the current state of each relay output channel.
+type relayV1 struct {
 	IsOn           bool   `json:"ison" yaml:"ison"`                       // Indicates if the relay is on
 	HasTimer       bool   `json:"has_timer" yaml:"has_timer"`             // Indicates if a timer is set
 	TimerStarted   int64  `json:"timer_started" yaml:"timer_started"`     // Timestamp when the timer was started
@@ -85,8 +85,8 @@ type RelayV1 struct {
 	Source         string `json:"source" yaml:"source"`                   // Source that caused the last state change
 }
 
-// MeterV1 represents the current status of each power meter.
-type MeterV1 struct {
+// meterV1 represents the current status of each power meter.
+type meterV1 struct {
 	Power     float64   `json:"power" yaml:"power"`         // Current power usage
 	Overpower float64   `json:"overpower" yaml:"overpower"` // Overpower value threshold
 	IsValid   bool      `json:"is_valid" yaml:"is_valid"`   // Validity of the meter reading
@@ -134,7 +134,7 @@ func (s *shellyPlugV1) RenderInfo(w io.Writer) error {
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "                Time: %s\n", t)
 	fmt.Fprintf(w, "              Uptime: %v\n", time.Duration(status.Uptime)*time.Second)
-	fmt.Fprintf(w, "         Memory Used: %v\n", humanize.IBytes(uint64(status.RamTotal)))
+	fmt.Fprintf(w, "        Memory Total: %v\n", humanize.IBytes(uint64(status.RamTotal)))
 	fmt.Fprintf(w, "         Memory Free: %v\n", humanize.IBytes(uint64(status.RamFree)))
 	fmt.Fprintf(w, "       Storage Total: %v\n", humanize.IBytes(uint64(status.FsSize)))
 	fmt.Fprintf(w, "        Storage Free: %v\n", humanize.IBytes(uint64(status.FsFree)))
@@ -184,7 +184,6 @@ func (s *shellyPlugV1) RenderInfo(w io.Writer) error {
 	}
 
 	return nil
-
 }
 
 func (s *shellyPlugV1) RenderEnergy(w io.Writer) error {
@@ -239,7 +238,7 @@ func (s *shellyPlugV1) RenderEnergy(w io.Writer) error {
 	default:
 		fmt.Fprintln(w, "Meter Information")
 		fmt.Fprintln(w)
-		fmt.Fprintf(w, "          Powered On: %t\n", isOn)
+		fmt.Fprintf(w, "          Powered On: %t\n", isOn == 1)
 		fmt.Fprintf(w, "               Power: %.2f Watt\n", m.Power)
 		fmt.Fprintf(w, "   Total Consumption: %.2f kWh\n", float64(m.Total)*0.000016666666666666667)
 	}
@@ -277,7 +276,7 @@ func (s *shellyPlugV1) get(path string, queries map[string]string, response any)
 }
 
 func (s *shellyPlugV1) TurnOn() (bool, error) {
-	var res RelayV1
+	var res relayV1
 
 	err := s.get("relay/0", map[string]string{"turn": "on"}, &res)
 	if err != nil {
@@ -291,7 +290,7 @@ func (s *shellyPlugV1) TurnOn() (bool, error) {
 }
 
 func (s *shellyPlugV1) TurnOff() (bool, error) {
-	var res RelayV1
+	var res relayV1
 
 	err := s.get("relay/0", map[string]string{"turn": "off"}, &res)
 	if err != nil {
@@ -305,8 +304,8 @@ func (s *shellyPlugV1) TurnOff() (bool, error) {
 	return res.IsOn, nil
 }
 
-func (s *shellyPlugV1) Status() (*DeviceStatusV1, error) {
-	var res DeviceStatusV1
+func (s *shellyPlugV1) Status() (*deviceStatusV1, error) {
+	var res deviceStatusV1
 
 	err := s.get("status", nil, &res)
 	if err != nil {
@@ -316,8 +315,8 @@ func (s *shellyPlugV1) Status() (*DeviceStatusV1, error) {
 	return &res, nil
 }
 
-func (s *shellyPlugV1) Info() (*DeviceInfoV1, error) {
-	var res DeviceInfoV1
+func (s *shellyPlugV1) Info() (*deviceInfoV1, error) {
+	var res deviceInfoV1
 
 	err := s.get("shelly", nil, &res)
 	if err != nil {
