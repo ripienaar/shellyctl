@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/url"
 	"time"
 
@@ -197,7 +196,6 @@ func (s *shellyPlugV2) get(path string, queries map[string]string, response any)
 	}
 
 	body := resp.Body()
-	log.Printf("body: %s\n", string(body))
 	err = json.Unmarshal(body, response)
 	if err != nil {
 		return fmt.Errorf("invalid response body: %v", err)
